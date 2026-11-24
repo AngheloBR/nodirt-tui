@@ -12,7 +12,7 @@ mod ui;
 
 use std::{
     sync::atomic::{AtomicBool, Ordering},
-    time::Duration,
+    time::{Duration, Instant},
 };
 
 use ratatui::{
@@ -35,7 +35,7 @@ pub fn run(mut app: App, stop: &AtomicBool) -> color_eyre::Result<bool> {
     // el nuestro se instala después para correr ANTES y soltar los grabs primero.
     let mut terminal = ratatui::init();
     x11::install_panic_hook();
-    let res = event_loop(&mut terminal, &mut app, stop);
+    let res = event_loop(&mut terminal, &mut app, stop, Instant::now());
     ratatui::restore();
     res?;
     Ok(stop.load(Ordering::Relaxed))
@@ -45,17 +45,18 @@ fn event_loop(
     terminal: &mut DefaultTerminal,
     app: &mut App,
     stop: &AtomicBool,
+    epoch: Instant,
 ) -> color_eyre::Result<()> {
     while !stop.load(Ordering::Relaxed) {
         terminal.draw(|f| ui::draw(f, app, View::Setup))?;
-        app.tick = app.tick.wrapping_add(1);
+        app.tick = ticks(epoch);
         if event::poll(FRAME)?
             && let Event::Key(k) = event::read()?
             && k.kind == KeyEventKind::Press
         {
             match app.on_key(k) {
                 Action::Quit => break,
-                Action::Start => start(terminal, app, stop),
+                Action::Start => start(terminal, app, stop, epoch),
                 Action::None => {}
             }
         }
@@ -64,7 +65,7 @@ fn event_loop(
 }
 
 /// Ejecuta un bloqueo completo y deja el resultado como mensaje en `app`.
-fn start(terminal: &mut DefaultTerminal, app: &mut App, stop: &AtomicBool) {
+fn start(terminal: &mut DefaultTerminal, app: &mut App, stop: &AtomicBool, epoch: Instant) {
     let cfg = app.config();
     let mut backend = match X11Backend::connect() {
         Ok(b) => b,
@@ -77,8 +78,7 @@ fn start(terminal: &mut DefaultTerminal, app: &mut App, stop: &AtomicBool) {
     let res = lock::run(&mut backend, &mut RealClock, &cfg, stop, |p| {
         // Un fallo al dibujar no debe alargar ni romper el bloqueo: se ignora.
         let _ = terminal.draw(|f| ui::draw(f, app, View::Run(p)));
-        // Avanza el pulso de la cabecera y del estado.
-        app.tick = app.tick.wrapping_add(1);
+        app.tick = ticks(epoch);
         if matches!(p, Phase::Countdown { .. }) && key_pressed() {
             return Control::Cancel;
         }
@@ -104,6 +104,12 @@ fn start(terminal: &mut DefaultTerminal, app: &mut App, stop: &AtomicBool) {
         Err(e @ (LockError::Busy(_) | LockError::Backend(_))) => (format!("✗ {e}"), Level::Err),
     };
     app.set_message(msg, lvl);
+}
+
+/// Décimas de segundo desde `epoch`: el pulso late igual con el bucle de la
+/// configuración (100 ms) que con el del bloqueo (50 ms).
+fn ticks(epoch: Instant) -> u64 {
+    u64::try_from(epoch.elapsed().as_millis() / 100).unwrap_or(u64::MAX)
 }
 
 /// ¿Hay una pulsación pendiente en la terminal? Ante error, `true`: cancelar es lo seguro.

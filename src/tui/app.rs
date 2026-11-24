@@ -47,7 +47,7 @@ pub struct App {
     pub message: Option<(String, Level)>,
     /// Modal de atajos abierto.
     pub help: bool,
-    /// Contador de frames (animación de pulso).
+    /// Décimas de segundo desde que se abrió la TUI (animación de pulso).
     pub tick: u64,
 }
 
