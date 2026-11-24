@@ -39,7 +39,6 @@ maintainer = "AngheloBR <182365321+AngheloBR@users.noreply.github.com>"
 copyright = "2026, AngheloBR"
 section = "utils"
 priority = "optional"
-depends = ""
 extended-description = """\
 TUI y CLI que bloquean temporalmente teclado, mouse y touchpad en X11 para \
 limpiar el equipo. Siempre con temporizador, salida manteniendo una tecla y \
