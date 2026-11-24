@@ -1,1 +1,23 @@
 /target
+
+# Informes locales de herramientas (hook de commit de mypowers, etc.)
+/vault
+
+# Configuración local de agentes/editores
+/.claude/settings.local.json
+.vscode/
+.idea/
+*.swp
+
+# Cualquier cosa sensible
+.env
+.env.*
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa*
+id_ed25519*
+credentials*.json
+secrets*.json
+*.secret
