@@ -1,0 +1,27 @@
+[package]
+# El nombre del binario sale de aquí (`env!("CARGO_BIN_NAME")` en el código):
+# para renombrar la herramienta basta con cambiar `name` del paquete y del [[bin]].
+name = "nodirt-tui"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+license = "MIT OR Apache-2.0"
+description = "Bloquea teclado y mouse temporalmente para limpiar el equipo · X11"
+keywords = ["x11", "tui", "keyboard", "lock", "linux"]
+categories = ["command-line-utilities"]
+
+[[bin]]
+name = "nodirt"
+path = "src/main.rs"
+
+[profile.release]
+lto = "fat"
+codegen-units = 1
+strip = true
+opt-level = 3
+# ⚠️ NADA de panic = "abort": los Drop DEBEN correr para soltar los grabs de X11
+
+[dependencies]
+clap = { version = "4.6.9", features = ["derive"] }
+color-eyre = "0.6.5"
+thiserror = "2.0.21"
