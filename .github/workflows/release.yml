@@ -55,8 +55,27 @@ jobs:
             *.deb*
             *.rpm*
 
-  release:
+  # Instala los paquetes de verdad antes de publicar: si apt o dnf los rechazan, no hay release.
+  verify:
     needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: x86_64-unknown-linux-musl
+      - name: .deb con apt (Ubuntu)
+        run: |
+          sudo apt-get install -y ./nodirt-tui_*_amd64.deb
+          nodirt --version
+          dpkg -s nodirt-tui | grep -E '^(Package|Version|Depends)' || true
+          sudo apt-get remove -y nodirt-tui
+      - name: .rpm con dnf (Fedora)
+        run: |
+          docker run --rm -v "$PWD:/pkg:ro" fedora:latest \
+            sh -c 'dnf install -y /pkg/nodirt-tui-*.x86_64.rpm && nodirt --version && rpm -q nodirt-tui'
+
+  release:
+    needs: [build, verify]
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     steps:
