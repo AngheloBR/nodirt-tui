@@ -32,8 +32,8 @@ jobs:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - run: sudo apt-get update && sudo apt-get install -y xvfb xdotool
-      - run: cargo test --test xvfb -- --ignored
+      - run: sudo apt-get update && sudo apt-get install -y xvfb xdotool x11-xserver-utils
+      - run: cargo test --test xvfb -- --ignored --nocapture
 
   # Binario estático: debe compilar con musl y no depender de ninguna librería.
   musl:

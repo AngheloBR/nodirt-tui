@@ -10,6 +10,8 @@
 //!   se fusiona el par release+press con mismo keycode y timestamp.
 //! - Ctrl+Alt+Fn (cambio de VT) lo procesa el servidor antes de entregar eventos:
 //!   los grabs no lo bloquean.
+//! - Si cambia el mapa del teclado (XKB `MapNotify`/`NewKeyboardNotify`, o
+//!   `MappingNotify` sin XKB), se vuelve a leer.
 //! - Si el proceso muere, al cerrarse el socket el servidor X suelta los grabs.
 
 use std::{
@@ -25,8 +27,8 @@ use x11rb::{
     errors::{ConnectionError, ReplyError},
     protocol::{
         Event,
-        xkb::{self, ConnectionExt as _, PerClientFlag},
-        xproto::{ConnectionExt as _, EventMask, GrabMode, GrabStatus, Window},
+        xkb::{self, ConnectionExt as _, EventType, MapPart, PerClientFlag, SelectEventsAux},
+        xproto::{ConnectionExt as _, EventMask, GrabMode, GrabStatus, Mapping, Window},
     },
     rust_connection::RustConnection,
 };
@@ -81,6 +83,7 @@ impl X11Backend {
         let root = conn.setup().roots[screen].root;
         let keymap = load_keymap(&conn).map_err(|e| setup_err(&e))?;
         let detectable_repeat = enable_detectable_repeat(&conn);
+        watch_keymap(&conn);
         let conn = Arc::new(conn);
         if let Ok(mut g) = PANIC_CONN.lock() {
             *g = Some(Arc::clone(&conn));
@@ -130,6 +133,18 @@ impl X11Backend {
                 Ok(Some(InputEvent::KeyRelease(self.key(e.detail))))
             }
             // Un error asíncrono del servidor: abortar es lo seguro (Drop suelta todo).
+            // La distribución cambió (setxkbmap, xmodmap…): releer el mapa para
+            // que la tecla de salida se siga reconociendo.
+            // Con XKB activo el servidor no manda el MappingNotify del núcleo:
+            // avisa con estos eventos (suscritos en `watch_keymap`).
+            Event::XkbMapNotify(_) | Event::XkbNewKeyboardNotify(_) => {
+                self.keymap = load_keymap(&self.conn).map_err(be)?;
+                Ok(None)
+            }
+            Event::MappingNotify(e) if e.request == Mapping::KEYBOARD => {
+                self.keymap = load_keymap(&self.conn).map_err(be)?;
+                Ok(None)
+            }
             Event::Error(e) => Err(be(format!("{e:?}"))),
             _ => Ok(None),
         }
@@ -171,6 +186,20 @@ fn enable_detectable_repeat(conn: &RustConnection) -> bool {
     .ok()
     .and_then(|c| c.reply().ok())
     .is_some_and(|r| u32::from(r.value) & u32::from(flag) != 0)
+}
+
+/// Pide los avisos de XKB cuando cambia el mapa de teclas (p. ej. `setxkbmap`).
+/// Si falla no es grave: solo no se notarían cambios de distribución en pleno bloqueo.
+fn watch_keymap(conn: &RustConnection) {
+    let events = EventType::NEW_KEYBOARD_NOTIFY | EventType::MAP_NOTIFY;
+    let _ = conn.xkb_select_events(
+        xkb::ID::USE_CORE_KBD.into(),
+        0u16.into(),
+        events,
+        MapPart::KEY_SYMS,
+        MapPart::KEY_SYMS,
+        &SelectEventsAux::new(),
+    );
 }
 
 fn attempt(status: GrabStatus) -> Result<GrabAttempt, BackendError> {

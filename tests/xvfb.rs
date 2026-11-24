@@ -87,6 +87,18 @@ fn xdo(x: &Xvfb, args: &[&str]) {
     assert!(st.success(), "xdotool {args:?} falló");
 }
 
+fn xmodmap(x: &Xvfb, exprs: &[&str]) {
+    let mut cmd = Command::new("xmodmap");
+    for e in exprs {
+        cmd.args(["-e", e]);
+    }
+    let st = cmd
+        .env("DISPLAY", &x.display)
+        .status()
+        .expect("no se pudo ejecutar xmodmap");
+    assert!(st.success(), "xmodmap {exprs:?} falló");
+}
+
 /// Teclea `a` y hace clic con el puntero sobre el testigo.
 fn poke(x: &Xvfb) {
     xdo(x, &["mousemove", "200", "200"]);
@@ -458,4 +470,40 @@ fn teclado_ocupado_por_otro_cliente_da_codigo_3() {
         .reply()
         .unwrap();
     assert_eq!(p.status, GrabStatus::SUCCESS, "el puntero quedó libre");
+}
+
+#[test]
+#[ignore = "requiere Xvfb, xdotool y xmodmap: cargo test --test xvfb -- --ignored"]
+fn cambio_del_mapa_de_teclado_durante_el_bloqueo() {
+    let x = Xvfb::start();
+    let w = Witness::new(&x);
+    let mut n = Nodirt::spawn(&x, &["-t", "60s", "--unlock-key", "F12"]);
+    n.wait_locked();
+    // Intercambia F11 y F12 con el bloqueo activo (keycodes evdev 95 y 96).
+    xmodmap(&x, &["keycode 95 = F12", "keycode 96 = F11"]);
+    thread::sleep(Duration::from_millis(300));
+    // Algunos Xvfb (p. ej. Fedora 45) ignoran los cambios de mapa: sin cambio
+    // no hay nada que probar, y se dice en voz alta en vez de pasar en silencio.
+    let map = Command::new("xmodmap")
+        .arg("-pke")
+        .env("DISPLAY", &x.display)
+        .output()
+        .unwrap();
+    let map = String::from_utf8_lossy(&map.stdout);
+    let k95 = map
+        .lines()
+        .find(|l| l.starts_with("keycode  95 "))
+        .unwrap_or("");
+    if !k95.contains("= F12") {
+        eprintln!("OMITIDO: este Xvfb no aplicó el cambio de mapa ({k95:?})");
+        return;
+    }
+    // xdotool busca F12 en el mapa nuevo: pulsa el keycode 95.
+    xdo(&x, &["keydown", "F12"]);
+    thread::sleep(Duration::from_millis(3500));
+    xdo(&x, &["keyup", "F12"]);
+    let st = n.wait_exit(Duration::from_secs(5));
+    assert_eq!(st.code(), Some(0), "stdout: {}", n.out());
+    assert!(n.out().contains("desbloqueado con F12"), "{}", n.out());
+    assert_eq!(w.poke(&x), ALL);
 }
