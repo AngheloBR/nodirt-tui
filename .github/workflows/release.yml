@@ -29,7 +29,7 @@ jobs:
         run: |
           name=nodirt-${{ matrix.target }}
           mkdir "$name"
-          cp target/${{ matrix.target }}/release/nodirt LICENSE-MIT LICENSE-APACHE "$name"/
+          cp target/${{ matrix.target }}/release/nodirt README.md README.es.md LICENSE-MIT LICENSE-APACHE "$name"/
           tar czf "$name.tar.gz" "$name"
           sha256sum "$name.tar.gz" > "$name.tar.gz.sha256"
       - uses: actions/upload-artifact@v7
