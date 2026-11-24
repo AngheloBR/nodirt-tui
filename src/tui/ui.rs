@@ -577,6 +577,12 @@ fn draw_safety(f: &mut Frame, area: Rect, view: View) {
             "botón de encendido",
             "  no se bloquea: evítalo al limpiar",
         ),
+        item(
+            "!",
+            WARN,
+            "bloqueador de pantalla",
+            "  no puede activarse mientras dure",
+        ),
     ];
     if view.locked() {
         lines.push(Line::styled(

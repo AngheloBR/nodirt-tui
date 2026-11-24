@@ -10,7 +10,7 @@
 <text x="67.6" y="54.1" fill="#fb8e46" font-weight="700" textLength="8.6" lengthAdjust="spacingAndGlyphs">i</text>
 <text x="76.2" y="54.1" fill="#fca45d" font-weight="700" textLength="8.6" lengthAdjust="spacingAndGlyphs">r</text>
 <text x="84.8" y="54.1" fill="#fdba74" font-weight="700" textLength="8.6" lengthAdjust="spacingAndGlyphs">t</text>
-<text x="93.4" y="54.1" fill="#334155" textLength="68.8" lengthAdjust="spacingAndGlyphs">  v0.1.0</text>
+<text x="93.4" y="54.1" fill="#334155" textLength="68.8" lengthAdjust="spacingAndGlyphs">  v0.1.1</text>
 <text x="583.6" y="54.1" fill="#f74c00" textLength="17.2" lengthAdjust="spacingAndGlyphs">● </text>
 <text x="600.8" y="54.1" fill="#94a3b8" textLength="25.8" lengthAdjust="spacingAndGlyphs">X11</text>
 <text x="626.6" y="54.1" fill="#334155" textLength="43.0" lengthAdjust="spacingAndGlyphs">  ·  </text>
@@ -261,7 +261,9 @@
 <text x="213.8" y="510.1" fill="#64748b" textLength="301.0" lengthAdjust="spacingAndGlyphs">  no se bloquea: evítalo al limpiar</text>
 <text x="798.6" y="510.1" fill="#334155" textLength="8.6" lengthAdjust="spacingAndGlyphs">│</text>
 <text x="16.0" y="529.1" fill="#334155" textLength="8.6" lengthAdjust="spacingAndGlyphs">│</text>
-<text x="41.8" y="529.1" fill="#10785a" textLength="481.6" lengthAdjust="spacingAndGlyphs">  ● la terminal no recibe teclas: el combo se lee de X11</text>
+<text x="41.8" y="529.1" fill="#fbbf24" textLength="17.2" lengthAdjust="spacingAndGlyphs">! </text>
+<text x="59.0" y="529.1" fill="#e2e8f0" textLength="189.2" lengthAdjust="spacingAndGlyphs">bloqueador de pantalla</text>
+<text x="248.2" y="529.1" fill="#64748b" textLength="292.4" lengthAdjust="spacingAndGlyphs">  no puede activarse mientras dure</text>
 <text x="798.6" y="529.1" fill="#334155" textLength="8.6" lengthAdjust="spacingAndGlyphs">│</text>
 <text x="16.0" y="548.1" fill="#334155" textLength="791.2" lengthAdjust="spacingAndGlyphs">╰──────────────────────────────────────────────────────────────────────────────────────────╯</text>
 <rect x="24.6" y="553.0" width="9.0" height="19" fill="#1e293b"/>

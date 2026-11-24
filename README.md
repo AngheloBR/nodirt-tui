@@ -47,6 +47,20 @@ curl -fsSL https://github.com/AngheloBR/nodirt-tui/releases/latest/download/nodi
 On ARM use `aarch64-unknown-linux-musl` instead. Every release also ships a `.sha256`
 checksum.
 
+### Fedora / RHEL / openSUSE (.rpm) · Debian / Ubuntu / Mint (.deb)
+
+Download the package for your system from the
+[latest release](https://github.com/AngheloBR/nodirt-tui/releases/latest) and install it
+with your package manager:
+
+```sh
+sudo dnf install ./nodirt-tui-*.x86_64.rpm     # Fedora, RHEL
+sudo apt install ./nodirt-tui_*_amd64.deb      # Debian, Ubuntu, Mint
+```
+
+The binary inside is static, so the same package works on old and new releases alike.
+Uninstall with `sudo dnf remove nodirt-tui` / `sudo apt remove nodirt-tui`.
+
 ### From source
 
 Requires Rust 1.88+.
@@ -143,6 +157,9 @@ locked ──▶ timer runs out ─┐
 - **Emergency exit:** `Ctrl+Alt+F1…F12` switches virtual terminals and is never blocked.
 - **The power button is not blocked.** It belongs to systemd-logind, not X11. Avoid it while
   cleaning.
+- **Screen lockers can't kick in while it runs.** `i3lock`, `xss-lock`, `slock` and friends
+  need to grab the keyboard too, and nodirt is holding it. If you walk away during a long
+  lock, your screen stays unlocked until it ends.
 - **Touchpad gesture daemons** that read `/dev/input` directly (`touchegg`, `fusuma`,
   `libinput-gestures`) bypass X11 and are not blocked.
 - **Touchscreens** are not supported in this version.

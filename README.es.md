@@ -49,6 +49,20 @@ curl -fsSL https://github.com/AngheloBR/nodirt-tui/releases/latest/download/nodi
 En ARM usa `aarch64-unknown-linux-musl`. Cada release incluye también su checksum
 `.sha256`.
 
+### Fedora / RHEL / openSUSE (.rpm) · Debian / Ubuntu / Mint (.deb)
+
+Descarga el paquete para tu sistema desde la
+[última release](https://github.com/AngheloBR/nodirt-tui/releases/latest) e instálalo con
+tu gestor de paquetes:
+
+```sh
+sudo dnf install ./nodirt-tui-*.x86_64.rpm     # Fedora, RHEL
+sudo apt install ./nodirt-tui_*_amd64.deb      # Debian, Ubuntu, Mint
+```
+
+El binario de dentro es estático, así que el mismo paquete sirve en versiones antiguas y
+nuevas. Para desinstalar: `sudo dnf remove nodirt-tui` / `sudo apt remove nodirt-tui`.
+
 ### Desde el código
 
 Requiere Rust 1.88+.
@@ -145,6 +159,9 @@ bloqueado ──▶ se acaba el tiempo ─┐
 - **Salida de emergencia:** `Ctrl+Alt+F1…F12` cambia de terminal virtual y nunca se bloquea.
 - **El botón de encendido no se bloquea.** Lo gestiona systemd-logind, no X11. Evítalo al
   limpiar.
+- **Los bloqueadores de pantalla no pueden activarse mientras dura.** `i3lock`, `xss-lock`,
+  `slock` y similares también necesitan capturar el teclado, y nodirt lo tiene. Si te alejas
+  durante un bloqueo largo, la pantalla queda sin bloquear hasta que termine.
 - **Los demonios de gestos del touchpad** que leen `/dev/input` directamente (`touchegg`,
   `fusuma`, `libinput-gestures`) se saltan X11 y no se bloquean.
 - **Las pantallas táctiles** no están soportadas en esta versión.

@@ -31,6 +31,7 @@ Para salir antes de tiempo: mantener la tecla de desbloqueo (por defecto Escape,
 Salida de emergencia: el cambio de terminal virtual (Ctrl+Alt+F1…F12) NO se bloquea.
 Si el proceso muere (incluso con kill -9), el servidor X libera el teclado y el mouse.
 NO se bloquea el botón de encendido (lo gestiona systemd-logind, no X11).
+Mientras dura, ningún bloqueador de pantalla (i3lock, xss-lock…) puede activarse.
 
 Códigos de salida:
   0    bloqueo terminado (temporizador o combo)
