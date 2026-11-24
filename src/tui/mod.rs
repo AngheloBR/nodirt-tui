@@ -88,15 +88,9 @@ fn start(terminal: &mut DefaultTerminal, app: &mut App, stop: &AtomicBool, epoch
     drop(backend);
 
     let (msg, lvl) = match res {
-        Ok(Outcome::Expired) => (
-            "✓ tiempo cumplido · teclado y mouse liberados".into(),
-            Level::Ok,
-        ),
+        Ok(Outcome::Expired) => ("✓ tiempo cumplido · todo liberado".into(), Level::Ok),
         Ok(Outcome::Unlocked) => (
-            format!(
-                "✓ desbloqueado con {} · teclado y mouse liberados",
-                cfg.unlock_key
-            ),
+            format!("✓ desbloqueado con {} · todo liberado", cfg.unlock_key),
             Level::Ok,
         ),
         Ok(Outcome::Cancelled) => ("· cancelado · no se bloqueó nada".into(), Level::Warn),
