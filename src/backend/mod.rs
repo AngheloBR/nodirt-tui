@@ -3,6 +3,7 @@
 
 #[cfg(test)]
 pub mod fake;
+pub mod x11;
 
 use std::{fmt, time::Duration};
 
