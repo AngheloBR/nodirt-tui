@@ -4,6 +4,9 @@
 //! `lock::run` (combo). Aquí solo se redibuja.
 
 pub mod app;
+mod digits;
+#[cfg(test)]
+mod snapshot;
 mod theme;
 mod ui;
 
@@ -45,6 +48,7 @@ fn event_loop(
 ) -> color_eyre::Result<()> {
     while !stop.load(Ordering::Relaxed) {
         terminal.draw(|f| ui::draw(f, app, View::Setup))?;
+        app.tick = app.tick.wrapping_add(1);
         if event::poll(FRAME)?
             && let Event::Key(k) = event::read()?
             && k.kind == KeyEventKind::Press
@@ -70,10 +74,11 @@ fn start(terminal: &mut DefaultTerminal, app: &mut App, stop: &AtomicBool) {
         }
     };
 
-    let view_app: &App = app;
     let res = lock::run(&mut backend, &mut RealClock, &cfg, stop, |p| {
         // Un fallo al dibujar no debe alargar ni romper el bloqueo: se ignora.
-        let _ = terminal.draw(|f| ui::draw(f, view_app, View::Run(p)));
+        let _ = terminal.draw(|f| ui::draw(f, app, View::Run(p)));
+        // Avanza el pulso de la cabecera y del estado.
+        app.tick = app.tick.wrapping_add(1);
         if matches!(p, Phase::Countdown { .. }) && key_pressed() {
             return Control::Cancel;
         }

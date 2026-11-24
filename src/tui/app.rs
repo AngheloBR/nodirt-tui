@@ -45,6 +45,10 @@ pub struct App {
     pub unlock_hold: Duration,
     pub input: Option<Input>,
     pub message: Option<(String, Level)>,
+    /// Modal de atajos abierto.
+    pub help: bool,
+    /// Contador de frames (animación de pulso).
+    pub tick: u64,
 }
 
 impl App {
@@ -66,6 +70,8 @@ impl App {
             unlock_hold,
             input: None,
             message: None,
+            help: false,
+            tick: 0,
         }
     }
 
@@ -89,16 +95,13 @@ impl App {
         self.message = Some((text.into(), level));
     }
 
-    /// Índice seleccionado en la fila de opciones (presets + "otro").
-    pub fn selected(&self) -> usize {
-        match self.choice {
-            Choice::Preset(i) => i,
-            Choice::Custom(_) => PRESETS.len(),
-        }
-    }
-
     pub fn on_key(&mut self, k: KeyEvent) -> Action {
         let ctrl_c = k.modifiers.contains(KeyModifiers::CONTROL) && k.code == KeyCode::Char('c');
+        if self.help {
+            // Cualquier tecla cierra la ayuda.
+            self.help = false;
+            return Action::None;
+        }
         if self.input.is_some() {
             return self.on_input_key(k, ctrl_c);
         }
@@ -126,6 +129,10 @@ impl App {
                     buf: String::new(),
                     error: None,
                 });
+                Action::None
+            }
+            KeyCode::Char('?') => {
+                self.help = true;
                 Action::None
             }
             KeyCode::Char('m') => {
@@ -245,7 +252,6 @@ mod tests {
         a.on_key(key(KeyCode::Enter));
         assert!(a.input.is_none());
         assert_eq!(a.choice, Choice::Custom(Duration::from_secs(150)));
-        assert_eq!(a.selected(), PRESETS.len());
     }
 
     #[test]
@@ -309,5 +315,16 @@ mod tests {
             a.on_key(KeyEvent::new(KeyCode::Char('c'), KeyModifiers::CONTROL)),
             Action::Quit
         );
+    }
+
+    #[test]
+    fn ayuda_se_abre_y_cualquier_tecla_la_cierra() {
+        let mut a = app();
+        a.on_key(key(KeyCode::Char('?')));
+        assert!(a.help);
+        // 'q' cierra la ayuda, no sale.
+        assert_eq!(a.on_key(key(KeyCode::Char('q'))), Action::None);
+        assert!(!a.help);
+        assert_eq!(a.on_key(key(KeyCode::Char('q'))), Action::Quit);
     }
 }
