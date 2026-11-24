@@ -5,6 +5,7 @@
 //! al completar el combo, ante señal, ante error y durante el unwind de un panic.
 
 use std::{
+    collections::HashSet,
     sync::atomic::{AtomicBool, Ordering},
     time::{Duration, Instant},
 };
@@ -21,8 +22,9 @@ pub const RETRY_FOR: Duration = Duration::from_secs(3);
 pub const RETRY_EVERY: Duration = Duration::from_millis(100);
 /// Periodo del bucle (refresco de UI y revisión de señales).
 pub const TICK: Duration = Duration::from_millis(50);
-/// Tras completar el combo, cuánto se espera (como máximo) a que se suelte la
-/// tecla antes de liberar. Evita que su autorepeat llegue a la ventana con el foco.
+/// Al terminar (combo o temporizador), cuánto se espera como máximo a que se
+/// suelten las teclas pulsadas antes de liberar. Evita que su autorepeat llegue
+/// a la ventana con el foco.
 pub const RELEASE_WAIT: Duration = Duration::from_secs(2);
 
 pub trait Clock {
@@ -97,8 +99,11 @@ pub enum Phase {
         /// Progreso del combo en `[0, 1]`.
         hold: f64,
     },
-    /// Combo completado; se espera a que se suelte la tecla (máx. `RELEASE_WAIT`).
-    Releasing,
+    /// Terminado; se espera a que se suelten las teclas (máx. `RELEASE_WAIT`).
+    /// `unlocked`: `true` si fue por el combo, `false` si por el temporizador.
+    Releasing {
+        unlocked: bool,
+    },
 }
 
 /// Respuesta de la UI en cada tick. Solo se respeta durante la cuenta atrás:
@@ -186,24 +191,31 @@ fn countdown<C: Clock>(
     }
 }
 
-/// Mantiene la captura hasta que se suelte la tecla del combo, con tope.
-/// Las demás teclas siguen capturadas (y descartadas) mientras tanto.
+/// Mantiene la captura mientras quede alguna tecla pulsada, con tope `RELEASE_WAIT`.
+/// Lo que se pulse mientras tanto sigue capturado (y se descarta).
 fn wait_release<B: InputBackend, C: Clock>(
     backend: &mut B,
     clock: &mut C,
     stop: &AtomicBool,
-    unlock: &mut Unlock,
+    down: &mut HashSet<Key>,
+    unlocked: bool,
     ui: &mut impl FnMut(Phase) -> Control,
 ) -> Result<(), BackendError> {
     let deadline = clock.now() + RELEASE_WAIT;
-    while unlock.key_down() && !stop.load(Ordering::Relaxed) {
+    while !down.is_empty() && !stop.load(Ordering::Relaxed) {
         let now = clock.now();
         if now >= deadline {
             break;
         }
-        let _ = ui(Phase::Releasing);
-        if let Some(InputEvent::KeyRelease(k)) = backend.poll(TICK.min(deadline - now))? {
-            unlock.release(k, clock.now());
+        let _ = ui(Phase::Releasing { unlocked });
+        match backend.poll(TICK.min(deadline - now))? {
+            Some(InputEvent::KeyPress(k)) => {
+                down.insert(k);
+            }
+            Some(InputEvent::KeyRelease(k)) => {
+                down.remove(&k);
+            }
+            None => {}
         }
     }
     Ok(())
@@ -224,6 +236,9 @@ pub fn run<B: InputBackend, C: Clock>(
     let mut held = acquire(backend, clock, cfg.devices())?;
     let timer = Timer::new(clock.now(), cfg.duration);
     let mut unlock = Unlock::new(cfg.unlock_key, cfg.unlock_hold);
+    // Teclas vistas pulsadas y aún no soltadas (una pulsada antes del grab solo
+    // entra aquí si su autorepeat llega durante el bloqueo).
+    let mut down: HashSet<Key> = HashSet::new();
 
     // `held` se suelta al salir de esta función por cualquier camino.
     loop {
@@ -232,10 +247,11 @@ pub fn run<B: InputBackend, C: Clock>(
             return Ok(Outcome::Signal);
         }
         if unlock.tick(now) {
-            wait_release(held.backend(), clock, stop, &mut unlock, &mut ui)?;
+            wait_release(held.backend(), clock, stop, &mut down, true, &mut ui)?;
             return Ok(Outcome::Unlocked);
         }
         if timer.expired(now) {
+            wait_release(held.backend(), clock, stop, &mut down, false, &mut ui)?;
             return Ok(Outcome::Expired);
         }
         // El valor devuelto se ignora a propósito: con el bloqueo activo no se cancela desde la UI.
@@ -246,8 +262,14 @@ pub fn run<B: InputBackend, C: Clock>(
             hold: unlock.progress(now),
         });
         match held.backend().poll(TICK.min(timer.remaining(now)))? {
-            Some(InputEvent::KeyPress(k)) => unlock.press(k, clock.now()),
-            Some(InputEvent::KeyRelease(k)) => unlock.release(k, clock.now()),
+            Some(InputEvent::KeyPress(k)) => {
+                down.insert(k);
+                unlock.press(k, clock.now());
+            }
+            Some(InputEvent::KeyRelease(k)) => {
+                down.remove(&k);
+                unlock.release(k, clock.now());
+            }
             None => {}
         }
     }
@@ -549,7 +571,7 @@ mod tests {
             &cfg(60, true),
             &AtomicBool::new(false),
             |p| {
-                if p == Phase::Releasing {
+                if p == (Phase::Releasing { unlocked: true }) {
                     // Durante la espera todo sigue capturado.
                     assert_eq!(*log.borrow(), [Grabbed(K), Grabbed(P)]);
                     releasing += 1;
@@ -584,7 +606,7 @@ mod tests {
         let mut b = b.event(t0 + 5 * S, InputEvent::KeyPress(ESC));
         let stop = AtomicBool::new(false);
         let out = run(&mut b, &mut c, &cfg(60, true), &stop, |p| {
-            if p == Phase::Releasing {
+            if p == (Phase::Releasing { unlocked: true }) {
                 stop.store(true, Ordering::Relaxed);
             }
             Control::Continue
@@ -594,5 +616,53 @@ mod tests {
         let t = c.now() - t0;
         assert!(t < 8 * S + RELEASE_WAIT, "{t:?}");
         assert!(!b.is_grabbed(K));
+    }
+
+    #[test]
+    fn al_terminar_el_tiempo_espera_a_que_se_suelten_las_teclas() {
+        let (b, mut c, t0) = FakeBackend::new();
+        // Bloqueo de 10 s: termina en t0+13. 'a' pulsada a los 12 s, soltada a los 14 s.
+        let mut b = b
+            .event(t0 + 12 * S, InputEvent::KeyPress(A))
+            .event(t0 + 14 * S, InputEvent::KeyRelease(A));
+        let mut releasing = false;
+        let out = run(
+            &mut b,
+            &mut c,
+            &cfg(10, true),
+            &AtomicBool::new(false),
+            |p| {
+                releasing |= p == (Phase::Releasing { unlocked: false });
+                Control::Continue
+            },
+        );
+        assert_eq!(out, Ok(Outcome::Expired));
+        assert!(releasing);
+        let t = c.now() - t0;
+        assert!(t >= 14 * S && t < 14 * S + TICK, "{t:?}");
+    }
+
+    #[test]
+    fn al_terminar_el_tiempo_la_espera_tiene_tope() {
+        let (b, mut c, t0) = FakeBackend::new();
+        let mut b = b.event(t0 + 12 * S, InputEvent::KeyPress(A)); // paño apoyado: nunca se suelta
+        assert_eq!(go(&mut b, &mut c, &cfg(10, true)), Ok(Outcome::Expired));
+        let t = c.now() - t0;
+        assert!(
+            t >= 13 * S + RELEASE_WAIT && t < 13 * S + RELEASE_WAIT + TICK * 2,
+            "{t:?}"
+        );
+        assert!(!b.is_grabbed(K) && !b.is_grabbed(P));
+    }
+
+    #[test]
+    fn teclas_ya_soltadas_no_hacen_esperar() {
+        let (b, mut c, t0) = FakeBackend::new();
+        let mut b = b
+            .event(t0 + 5 * S, InputEvent::KeyPress(A))
+            .event(t0 + 6 * S, InputEvent::KeyRelease(A))
+            .event(t0 + 7 * S, InputEvent::KeyRelease(ESC)); // soltada sin pulsar: se ignora
+        assert_eq!(go(&mut b, &mut c, &cfg(10, true)), Ok(Outcome::Expired));
+        assert_eq!(c.now() - t0, 13 * S);
     }
 }

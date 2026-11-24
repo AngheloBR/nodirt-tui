@@ -4,15 +4,13 @@
 //! Idle ──press(target)──────────────▶ Holding{since}
 //! Holding ──press(target) (repetición)▶ Holding        (se ignora, no reinicia)
 //! Holding ──release(target) antes─────▶ Idle           (reinicia, progreso 0)
-//! Holding ──tick ≥ since+hold────────▶ Unlocked{down: true}
-//! Holding ──release ≥ since+hold──────▶ Unlocked{down: false}
-//! Unlocked{down} ──release(target)────▶ Unlocked{down: false}
+//! Holding ──release/tick ≥ since+hold─▶ Unlocked       (final)
 //! cualquier estado ──otra tecla───────▶ sin cambio
+//! Unlocked ──cualquier evento─────────▶ Unlocked
 //! ```
 //!
-//! `Unlocked` es final. `key_down()` indica si la tecla sigue pulsada: `lock.rs`
-//! mantiene la captura hasta que se suelte (con tope), para que el autorepeat
-//! de esa tecla no acabe en la ventana con el foco.
+//! Que la tecla siga pulsada tras desbloquear lo gestiona `lock.rs`, que no
+//! suelta la captura hasta que se liberen todas las teclas (con tope).
 //!
 //! Las repeticiones de autorepeat llegan como `press` sin `release` gracias a
 //! `XkbSetDetectableAutoRepeat`; si el servidor no lo soporta, el backend debe
@@ -26,7 +24,7 @@ use crate::keys::Key;
 enum State {
     Idle,
     Holding { since: Instant },
-    Unlocked { down: bool },
+    Unlocked,
 }
 
 #[derive(Debug, Clone)]
@@ -55,18 +53,14 @@ impl Unlock {
         if key != self.target {
             return;
         }
-        match self.state {
-            State::Holding { since } => {
-                // Si ya se cumplió el tiempo, soltar cuenta como completado
-                // (no depender de que el tick llegue justo antes).
-                self.state = if now.saturating_duration_since(since) >= self.hold {
-                    State::Unlocked { down: false }
-                } else {
-                    State::Idle
-                };
-            }
-            State::Unlocked { .. } => self.state = State::Unlocked { down: false },
-            State::Idle => {}
+        if let State::Holding { since } = self.state {
+            // Si ya se cumplió el tiempo, soltar cuenta como completado
+            // (no depender de que el tick llegue justo antes).
+            self.state = if now.saturating_duration_since(since) >= self.hold {
+                State::Unlocked
+            } else {
+                State::Idle
+            };
         }
     }
 
@@ -75,18 +69,13 @@ impl Unlock {
         if let State::Holding { since } = self.state
             && now.saturating_duration_since(since) >= self.hold
         {
-            self.state = State::Unlocked { down: true };
+            self.state = State::Unlocked;
         }
         self.is_unlocked()
     }
 
     pub fn is_unlocked(&self) -> bool {
-        matches!(self.state, State::Unlocked { .. })
-    }
-
-    /// Desbloqueado pero con la tecla aún pulsada.
-    pub fn key_down(&self) -> bool {
-        self.state == State::Unlocked { down: true }
+        self.state == State::Unlocked
     }
 
     #[cfg(test)]
@@ -98,7 +87,7 @@ impl Unlock {
     pub fn progress(&self, now: Instant) -> f64 {
         match self.state {
             State::Idle => 0.0,
-            State::Unlocked { .. } => 1.0,
+            State::Unlocked => 1.0,
             State::Holding { since } => {
                 let f =
                     now.saturating_duration_since(since).as_secs_f64() / self.hold.as_secs_f64();
@@ -213,28 +202,5 @@ mod tests {
         assert!(!u.tick(t0 + 5 * S));
         u.press(A, t0 + 5 * S);
         assert!(u.tick(t0 + 6 * S));
-    }
-
-    #[test]
-    fn tras_desbloquear_por_tick_la_tecla_sigue_pulsada() {
-        let (mut u, t0) = new();
-        u.press(ESC, t0);
-        assert!(u.tick(t0 + 3 * S));
-        assert!(u.key_down());
-        u.press(ESC, t0 + 3100 * MS); // autorepeat: sigue pulsada
-        assert!(u.key_down());
-        u.release(A, t0 + 3200 * MS); // otra tecla: no cuenta
-        assert!(u.key_down());
-        u.release(ESC, t0 + 3500 * MS);
-        assert!(!u.key_down());
-        assert!(u.is_unlocked());
-    }
-
-    #[test]
-    fn tras_desbloquear_por_soltar_no_hay_que_esperar() {
-        let (mut u, t0) = new();
-        u.press(ESC, t0);
-        u.release(ESC, t0 + 3 * S);
-        assert!(u.is_unlocked() && !u.key_down());
     }
 }

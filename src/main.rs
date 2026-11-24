@@ -130,7 +130,10 @@ fn render(p: Phase, cfg: &Config) -> String {
         Phase::Countdown { secs_left } => {
             format!("  bloqueando en {secs_left} s · Ctrl+C para cancelar")
         }
-        Phase::Releasing => format!("  ✓ combo completado · suelta {}", cfg.unlock_key),
+        Phase::Releasing { unlocked: true } => {
+            format!("  ✓ combo completado · suelta {}", cfg.unlock_key)
+        }
+        Phase::Releasing { unlocked: false } => "  ✓ tiempo cumplido · suelta las teclas".into(),
         Phase::Locked {
             remaining, hold, ..
         } => {

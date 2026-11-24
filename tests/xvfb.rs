@@ -291,6 +291,31 @@ fn temporizador_bloquea_y_libera() {
 
 #[test]
 #[ignore = "requiere Xvfb y xdotool: cargo test --test xvfb -- --ignored"]
+fn temporizador_con_tecla_pulsada_espera_a_que_se_suelte() {
+    let x = Xvfb::start();
+    let w = Witness::new(&x);
+    let mut n = Nodirt::spawn(&x, &["-t", "2s"]);
+    n.wait_locked();
+    // Un paño apoyado sobre la 'a' mientras termina el temporizador.
+    xdo(&x, &["keydown", "a"]);
+    n.wait_for("suelta las teclas", Duration::from_secs(5));
+    assert!(
+        n.child.try_wait().unwrap().is_none(),
+        "no debe liberar con una tecla pulsada"
+    );
+    thread::sleep(Duration::from_millis(500));
+    xdo(&x, &["keyup", "a"]);
+    let st = n.wait_exit(Duration::from_secs(3));
+    assert_eq!(st.code(), Some(0), "stdout: {}", n.out());
+    assert_eq!(
+        w.poke(&x),
+        ALL,
+        "tras el temporizador SÍ llega, sin autorepeat de la 'a' colado"
+    );
+}
+
+#[test]
+#[ignore = "requiere Xvfb y xdotool: cargo test --test xvfb -- --ignored"]
 fn combo_mantenido_libera_y_soltar_antes_no() {
     let x = Xvfb::start();
     let w = Witness::new(&x);
