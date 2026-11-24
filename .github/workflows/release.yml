@@ -1,10 +1,12 @@
 name: Release
 
-# Publica binarios estáticos (musl) al empujar un tag `v*`,
-# p. ej. `git tag -a v0.1.0 -m "..." && git push origin v0.1.0`.
+# Publica binarios estáticos (musl) y paquetes .deb/.rpm al empujar un tag `v*`,
+# p. ej. `git tag -a v0.1.1 -m "..." && git push origin v0.1.1`.
+# Lanzado a mano (workflow_dispatch) solo compila y deja los artefactos: no publica.
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -32,13 +34,30 @@ jobs:
           cp target/${{ matrix.target }}/release/nodirt README.md README.es.md LICENSE-MIT LICENSE-APACHE "$name"/
           tar czf "$name.tar.gz" "$name"
           sha256sum "$name.tar.gz" > "$name.tar.gz.sha256"
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-deb,cargo-generate-rpm
+      - name: Paquetes .deb y .rpm
+        run: |
+          # --no-strip: el perfil release ya quita los símbolos (y strip del host no sirve para aarch64).
+          cargo deb --no-build --no-strip --target ${{ matrix.target }} --output .
+          cargo generate-rpm --target ${{ matrix.target }} --output .
+          for f in *.deb *.rpm; do sha256sum "$f" > "$f.sha256"; done
+      - name: Inspeccionar paquetes
+        run: |
+          for f in *.deb; do dpkg-deb --info "$f"; dpkg-deb --contents "$f"; done
+          for f in *.rpm; do rpm -qip "$f" 2>/dev/null || true; rpm -qlp "$f" 2>/dev/null || true; rpm -qRp "$f" 2>/dev/null || true; done
       - uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.target }}
-          path: nodirt-*.tar.gz*
+          path: |
+            nodirt-*.tar.gz*
+            *.deb*
+            *.rpm*
 
   release:
     needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v8
@@ -46,5 +65,8 @@ jobs:
           merge-multiple: true
       - uses: softprops/action-gh-release@v3
         with:
-          files: nodirt-*.tar.gz*
+          files: |
+            nodirt-*.tar.gz*
+            *.deb*
+            *.rpm*
           generate_release_notes: true

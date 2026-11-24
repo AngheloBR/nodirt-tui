@@ -2,7 +2,7 @@
 # El nombre del binario sale de aquí (`env!("CARGO_BIN_NAME")` en el código):
 # para renombrar la herramienta basta con cambiar `name` del paquete y del [[bin]].
 name = "nodirt-tui"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 rust-version = "1.88"
 license = "MIT OR Apache-2.0"
@@ -29,3 +29,37 @@ ratatui = "0.30"
 signal-hook = "0.4.6"
 thiserror = "2.0.21"
 x11rb = { version = "0.14", default-features = false, features = ["xkb"] }
+
+# ── Paquetes .deb / .rpm (los genera el workflow de release) ─────────────────
+# El binario es estático (musl): no depende de ninguna librería del sistema.
+
+[package.metadata.deb]
+name = "nodirt-tui"
+maintainer = "AngheloBR <182365321+AngheloBR@users.noreply.github.com>"
+copyright = "2026, AngheloBR"
+section = "utils"
+priority = "optional"
+depends = ""
+extended-description = """\
+TUI y CLI que bloquean temporalmente teclado, mouse y touchpad en X11 para \
+limpiar el equipo. Siempre con temporizador, salida manteniendo una tecla y \
+cuenta atrás de 3 s antes de bloquear. Sin privilegios."""
+assets = [
+    ["target/release/nodirt", "usr/bin/", "755"],
+    ["README.md", "usr/share/doc/nodirt-tui/README.md", "644"],
+    ["README.es.md", "usr/share/doc/nodirt-tui/README.es.md", "644"],
+    ["LICENSE-MIT", "usr/share/doc/nodirt-tui/", "644"],
+    ["LICENSE-APACHE", "usr/share/doc/nodirt-tui/", "644"],
+]
+
+[package.metadata.generate-rpm]
+auto-req = "no"
+name = "nodirt-tui"
+summary = "Bloquea teclado y mouse temporalmente para limpiar el equipo · X11"
+assets = [
+    { source = "target/release/nodirt", dest = "/usr/bin/nodirt", mode = "755" },
+    { source = "README.md", dest = "/usr/share/doc/nodirt-tui/README.md", mode = "644", doc = true },
+    { source = "README.es.md", dest = "/usr/share/doc/nodirt-tui/README.es.md", mode = "644", doc = true },
+    { source = "LICENSE-MIT", dest = "/usr/share/licenses/nodirt-tui/LICENSE-MIT", mode = "644", doc = true },
+    { source = "LICENSE-APACHE", dest = "/usr/share/licenses/nodirt-tui/LICENSE-APACHE", mode = "644", doc = true },
+]
