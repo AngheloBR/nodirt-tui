@@ -89,6 +89,8 @@ pub enum Phase {
     Locked {
         remaining: Duration,
         total: Duration,
+        /// Fracción del temporizador transcurrida en `[0, 1]`.
+        elapsed: f64,
         /// Progreso del combo en `[0, 1]`.
         hold: f64,
     },
@@ -113,6 +115,7 @@ impl<B: InputBackend> Held<'_, B> {
         self.backend
     }
 
+    #[cfg(test)]
     pub fn devices(&self) -> &[Device] {
         &self.held
     }
@@ -210,6 +213,7 @@ pub fn run<B: InputBackend, C: Clock>(
         let _ = ui(Phase::Locked {
             remaining: timer.remaining(now),
             total: timer.total(),
+            elapsed: timer.progress(now),
             hold: unlock.progress(now),
         });
         match held.backend().poll(TICK.min(timer.remaining(now)))? {
@@ -482,6 +486,7 @@ mod tests {
                     hold,
                     total,
                     remaining,
+                    ..
                 } = p
                 {
                     first_locked.get_or_insert((total, remaining));

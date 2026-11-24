@@ -1,13 +1,10 @@
-// TEMPORAL: presets y algunos accesores solo los usará la TUI.
-// Quitar en M5; a partir de ahí clippy debe pasar sin esto.
-#![allow(dead_code)]
-
 mod backend;
 mod cli;
 mod duration;
 mod keys;
 mod lock;
 mod timer;
+mod tui;
 mod unlock;
 
 use std::{
@@ -27,11 +24,29 @@ fn main() -> color_eyre::Result<ExitCode> {
     color_eyre::install()?;
     let cli = Cli::parse();
 
+    let stop = Arc::new(AtomicBool::new(false));
+    for sig in [
+        signal_hook::consts::SIGINT,
+        signal_hook::consts::SIGTERM,
+        signal_hook::consts::SIGHUP,
+    ] {
+        signal_hook::flag::register(sig, Arc::clone(&stop))?;
+    }
+
     let bare = std::env::args_os().len() == 1;
     let interactive = std::io::stdin().is_terminal() && std::io::stdout().is_terminal();
     if cli.tui || (bare && interactive) {
-        eprintln!("la TUI aún no está implementada (M5) · usa el modo CLI: nodirt -t 30s");
-        return Ok(ExitCode::from(exit::ERROR));
+        if !interactive {
+            eprintln!("✗ --tui necesita una terminal interactiva");
+            return Ok(ExitCode::from(exit::USAGE));
+        }
+        let app = tui::app::App::new(cli.time, !cli.no_mouse, cli.unlock_key, cli.unlock_hold);
+        let by_signal = tui::run(app, &stop)?;
+        return Ok(ExitCode::from(if by_signal {
+            exit::CANCELLED
+        } else {
+            exit::OK
+        }));
     }
 
     let cfg = Config {
@@ -41,14 +56,6 @@ fn main() -> color_eyre::Result<ExitCode> {
         mouse: !cli.no_mouse,
     };
 
-    let stop = Arc::new(AtomicBool::new(false));
-    for sig in [
-        signal_hook::consts::SIGINT,
-        signal_hook::consts::SIGTERM,
-        signal_hook::consts::SIGHUP,
-    ] {
-        signal_hook::flag::register(sig, Arc::clone(&stop))?;
-    }
     // Después de color_eyre: el nuestro corre primero y suelta los grabs.
     x11::install_panic_hook();
 

@@ -11,6 +11,7 @@ use std::fmt;
 pub struct Key(pub u32);
 
 impl Key {
+    #[cfg(test)]
     pub const ESCAPE: Key = Key(0xff1b);
 }
 

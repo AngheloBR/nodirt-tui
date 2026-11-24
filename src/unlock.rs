@@ -40,14 +40,6 @@ impl Unlock {
         }
     }
 
-    pub fn target(&self) -> Key {
-        self.target
-    }
-
-    pub fn hold(&self) -> Duration {
-        self.hold
-    }
-
     pub fn press(&mut self, key: Key, now: Instant) {
         if key == self.target && self.state == State::Idle {
             self.state = State::Holding { since: now };
@@ -83,6 +75,7 @@ impl Unlock {
         self.state == State::Unlocked
     }
 
+    #[cfg(test)]
     pub fn is_holding(&self) -> bool {
         matches!(self.state, State::Holding { .. })
     }
@@ -206,7 +199,5 @@ mod tests {
         assert!(!u.tick(t0 + 5 * S));
         u.press(A, t0 + 5 * S);
         assert!(u.tick(t0 + 6 * S));
-        assert_eq!(u.target(), A);
-        assert_eq!(u.hold(), S);
     }
 }
