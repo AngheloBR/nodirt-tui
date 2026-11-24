@@ -21,6 +21,9 @@ pub const RETRY_FOR: Duration = Duration::from_secs(3);
 pub const RETRY_EVERY: Duration = Duration::from_millis(100);
 /// Periodo del bucle (refresco de UI y revisión de señales).
 pub const TICK: Duration = Duration::from_millis(50);
+/// Tras completar el combo, cuánto se espera (como máximo) a que se suelte la
+/// tecla antes de liberar. Evita que su autorepeat llegue a la ventana con el foco.
+pub const RELEASE_WAIT: Duration = Duration::from_secs(2);
 
 pub trait Clock {
     fn now(&self) -> Instant;
@@ -94,6 +97,8 @@ pub enum Phase {
         /// Progreso del combo en `[0, 1]`.
         hold: f64,
     },
+    /// Combo completado; se espera a que se suelte la tecla (máx. `RELEASE_WAIT`).
+    Releasing,
 }
 
 /// Respuesta de la UI en cada tick. Solo se respeta durante la cuenta atrás:
@@ -181,6 +186,29 @@ fn countdown<C: Clock>(
     }
 }
 
+/// Mantiene la captura hasta que se suelte la tecla del combo, con tope.
+/// Las demás teclas siguen capturadas (y descartadas) mientras tanto.
+fn wait_release<B: InputBackend, C: Clock>(
+    backend: &mut B,
+    clock: &mut C,
+    stop: &AtomicBool,
+    unlock: &mut Unlock,
+    ui: &mut impl FnMut(Phase) -> Control,
+) -> Result<(), BackendError> {
+    let deadline = clock.now() + RELEASE_WAIT;
+    while unlock.key_down() && !stop.load(Ordering::Relaxed) {
+        let now = clock.now();
+        if now >= deadline {
+            break;
+        }
+        let _ = ui(Phase::Releasing);
+        if let Some(InputEvent::KeyRelease(k)) = backend.poll(TICK.min(deadline - now))? {
+            unlock.release(k, clock.now());
+        }
+    }
+    Ok(())
+}
+
 /// Sesión completa: cuenta atrás, captura, bucle y liberación.
 pub fn run<B: InputBackend, C: Clock>(
     backend: &mut B,
@@ -204,6 +232,7 @@ pub fn run<B: InputBackend, C: Clock>(
             return Ok(Outcome::Signal);
         }
         if unlock.tick(now) {
+            wait_release(held.backend(), clock, stop, &mut unlock, &mut ui)?;
             return Ok(Outcome::Unlocked);
         }
         if timer.expired(now) {
@@ -329,13 +358,18 @@ mod tests {
     #[test]
     fn el_combo_libera() {
         let (b, mut c, t0) = FakeBackend::new();
-        // Cuenta atrás termina en t0+3; Esc a los 5 s, desbloquea a los 8 s.
-        let mut b = b.event(t0 + 5 * S, InputEvent::KeyPress(ESC));
+        // Cuenta atrás termina en t0+3; Esc a los 5 s, combo completo a los 8 s,
+        // se suelta a los 8,5 s y entonces se libera.
+        let mut b = b.event(t0 + 5 * S, InputEvent::KeyPress(ESC)).event(
+            t0 + 8500 * Duration::from_millis(1),
+            InputEvent::KeyRelease(ESC),
+        );
         let log = b.log.clone();
         assert_eq!(go(&mut b, &mut c, &cfg(60, true)), Ok(Outcome::Unlocked));
         assert_eq!(log.borrow().last(), Some(&Ungrabbed(K)));
         let t = c.now() - t0;
-        assert!(t >= 8 * S && t < 8 * S + TICK * 2, "{t:?}");
+        let release = 8500 * Duration::from_millis(1);
+        assert!(t >= release && t < release + TICK, "{t:?}");
     }
 
     #[test]
@@ -498,5 +532,67 @@ mod tests {
         assert_eq!(out, Ok(Outcome::Unlocked));
         assert_eq!(first_locked, Some((60 * S, 60 * S)));
         assert!(max_hold > 0.9 && max_hold < 1.0, "{max_hold}");
+    }
+
+    #[test]
+    fn tras_el_combo_espera_a_que_se_suelte_la_tecla() {
+        let (b, mut c, t0) = FakeBackend::new();
+        // Combo completo a los 8 s; la tecla se suelta a los 9 s.
+        let mut b = b
+            .event(t0 + 5 * S, InputEvent::KeyPress(ESC))
+            .event(t0 + 9 * S, InputEvent::KeyRelease(ESC));
+        let log = b.log.clone();
+        let mut releasing = 0;
+        let out = run(
+            &mut b,
+            &mut c,
+            &cfg(60, true),
+            &AtomicBool::new(false),
+            |p| {
+                if p == Phase::Releasing {
+                    // Durante la espera todo sigue capturado.
+                    assert_eq!(*log.borrow(), [Grabbed(K), Grabbed(P)]);
+                    releasing += 1;
+                }
+                Control::Continue
+            },
+        );
+        assert_eq!(out, Ok(Outcome::Unlocked));
+        assert!(releasing > 0);
+        let t = c.now() - t0;
+        assert!(t >= 9 * S && t < 9 * S + TICK, "{t:?}");
+        assert_eq!(b.log.borrow().last(), Some(&Ungrabbed(K)));
+    }
+
+    #[test]
+    fn la_espera_tras_el_combo_tiene_tope() {
+        let (b, mut c, t0) = FakeBackend::new();
+        let mut b = b.event(t0 + 5 * S, InputEvent::KeyPress(ESC)); // nunca se suelta
+        assert_eq!(go(&mut b, &mut c, &cfg(60, true)), Ok(Outcome::Unlocked));
+        let t = c.now() - t0;
+        // 8 s (combo) + RELEASE_WAIT, no más.
+        assert!(
+            t >= 8 * S + RELEASE_WAIT && t < 8 * S + RELEASE_WAIT + TICK * 2,
+            "{t:?}"
+        );
+        assert!(!b.is_grabbed(K) && !b.is_grabbed(P));
+    }
+
+    #[test]
+    fn senal_durante_la_espera_tras_el_combo() {
+        let (b, mut c, t0) = FakeBackend::new();
+        let mut b = b.event(t0 + 5 * S, InputEvent::KeyPress(ESC));
+        let stop = AtomicBool::new(false);
+        let out = run(&mut b, &mut c, &cfg(60, true), &stop, |p| {
+            if p == Phase::Releasing {
+                stop.store(true, Ordering::Relaxed);
+            }
+            Control::Continue
+        });
+        // El combo ya se completó: el resultado sigue siendo Unlocked.
+        assert_eq!(out, Ok(Outcome::Unlocked));
+        let t = c.now() - t0;
+        assert!(t < 8 * S + RELEASE_WAIT, "{t:?}");
+        assert!(!b.is_grabbed(K));
     }
 }

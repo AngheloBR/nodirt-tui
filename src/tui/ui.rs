@@ -34,7 +34,7 @@ pub fn draw(f: &mut Frame, app: &App, view: View) {
         Span::styled(env!("CARGO_BIN_NAME"), bold(theme::accent(0.0))),
         Span::styled(" · limpieza segura ", fg(MUTED)),
     ]);
-    let hot = matches!(view, View::Run(Phase::Locked { .. }));
+    let hot = matches!(view, View::Run(Phase::Locked { .. } | Phase::Releasing));
     let block = Block::bordered()
         .border_type(BorderType::Rounded)
         .border_style(fg(if hot { WARN } else { FAINT }))
@@ -51,6 +51,7 @@ pub fn draw(f: &mut Frame, app: &App, view: View) {
             elapsed,
             hold,
         }) => locked(app, remaining, total, elapsed, hold),
+        View::Run(Phase::Releasing) => releasing(app),
     };
     f.render_widget(Paragraph::new(lines).wrap(Wrap { trim: false }), inner);
 }
@@ -197,6 +198,26 @@ fn countdown(secs_left: u64) -> Vec<Line<'static>> {
     ]
 }
 
+fn releasing(app: &App) -> Vec<Line<'static>> {
+    let mut full = vec![Span::raw("  ")];
+    full.extend(bar(1.0, BAR, theme::accent(1.0)));
+    vec![
+        Line::default(),
+        Line::from(vec![
+            Span::styled("  ✓ combo completado", bold(OK)),
+            Span::styled(" · suelta ", fg(TEXT)),
+            Span::styled(app.unlock_key.to_string(), bold(theme::accent(1.0))),
+        ]),
+        Line::default(),
+        Line::from(full),
+        Line::default(),
+        Line::from(Span::styled(
+            "  se libera al soltarla (o en 2 s), así no se cuela en otra ventana",
+            fg(DIM),
+        )),
+    ]
+}
+
 fn locked(
     app: &App,
     remaining: Duration,
@@ -279,6 +300,7 @@ mod tests {
         hold: 0.5,
     });
     const COUNTDOWN: View = View::Run(Phase::Countdown { secs_left: 3 });
+    const RELEASING: View = View::Run(Phase::Releasing);
 
     #[test]
     fn pantalla_de_configuracion() {
@@ -328,6 +350,15 @@ mod tests {
     }
 
     #[test]
+    fn soltar_tras_el_combo() {
+        let s = render(&app(), RELEASING, 80, 24);
+        assert!(
+            s.contains("combo completado") && s.contains("suelta Escape"),
+            "{s}"
+        );
+    }
+
+    #[test]
     fn barra() {
         let txt = |r| {
             bar(r, 10, OK)
@@ -347,7 +378,7 @@ mod tests {
         let mut a = app();
         a.set_message("✓ listo", Level::Ok);
         for (w, h) in [(1, 1), (10, 3), (30, 8), (66, 15), (200, 60)] {
-            for v in [View::Setup, COUNTDOWN, LOCKED] {
+            for v in [View::Setup, COUNTDOWN, LOCKED, RELEASING] {
                 render(&a, v, w, h);
             }
         }
@@ -359,7 +390,7 @@ mod tests {
     fn vista_previa() {
         let mut a = app();
         a.set_message("✓ tiempo cumplido · teclado y mouse liberados", Level::Ok);
-        for v in [View::Setup, COUNTDOWN, LOCKED] {
+        for v in [View::Setup, COUNTDOWN, LOCKED, RELEASING] {
             println!("{}\n", render(&a, v, 74, 16));
         }
     }
