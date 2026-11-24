@@ -10,7 +10,7 @@ escritorio. Siempre termina sola, y puedes salir antes manteniendo una tecla.
 
 Español · [English](README.md)
 
-![La TUI de nodirt durante un bloqueo de 5 minutos](docs/tui-locked.svg)
+![Demo de nodirt: elegir 30s, cuenta atrás, bloqueo y mantener Escape para salir](docs/demo.svg)
 
 </div>
 
@@ -94,6 +94,8 @@ Ejecuta `nodirt` sin argumentos.
 
 Durante el bloqueo la terminal no recibe nada: la tecla de salida se lee directamente de X11.
 
+![La TUI de nodirt durante un bloqueo de 5 minutos, con Escape mantenido a medias](docs/tui-locked.svg)
+
 ![Duración personalizada con vista previa](docs/tui-custom.svg)
 
 ## La CLI
@@ -174,6 +176,7 @@ cargo test
 cargo clippy --all-targets -- -D warnings
 cargo test --test xvfb -- --ignored   # grabs reales en un Xvfb privado (necesita Xvfb + xdotool)
 cargo test snapshots -- --ignored     # regenera las capturas de docs/
+cargo test demo -- --ignored          # regenera el demo animado (docs/demo.svg)
 ```
 
 Los tests de integración arrancan su propio servidor Xvfb y nunca tocan tu sesión.
@@ -181,7 +184,8 @@ Comprueban que, durante el bloqueo, las teclas y clics de `xdotool` no llegan a 
 cliente, y que sí llegan después del temporizador, de la tecla de salida y de `kill -9`.
 El CI los ejecuta en cada push.
 
-Las capturas salen del propio código que dibuja la TUI, así que siempre coinciden con la app.
+Las capturas y el demo salen del propio código que dibuja la TUI, así que siempre coinciden
+con la app.
 
 ## Licencia
 

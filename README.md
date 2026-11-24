@@ -10,7 +10,7 @@ It always ends on its own, and you can leave early by holding a key.
 
 [Español](README.es.md) · English
 
-![nodirt TUI during a 5-minute lock](docs/tui-locked.svg)
+![nodirt demo: pick 30s, countdown, locked, hold Escape to leave](docs/demo.svg)
 
 </div>
 
@@ -92,6 +92,8 @@ Run `nodirt` with no arguments.
 
 While locked the terminal receives nothing: the unlock key is read straight from X11.
 
+![nodirt TUI during a 5-minute lock, Escape held halfway](docs/tui-locked.svg)
+
 ![Custom duration with a live preview](docs/tui-custom.svg)
 
 ## The CLI
@@ -172,13 +174,15 @@ cargo test
 cargo clippy --all-targets -- -D warnings
 cargo test --test xvfb -- --ignored   # real grabs on a private Xvfb (needs Xvfb + xdotool)
 cargo test snapshots -- --ignored     # regenerate the screenshots in docs/
+cargo test demo -- --ignored          # regenerate the animated demo (docs/demo.svg)
 ```
 
 The integration tests start their own Xvfb server and never touch your session. They check
 that, while locked, `xdotool` keys and clicks don't reach a second client, and that they do
 again after the timer, after the unlock key and after `kill -9`. CI runs them on every push.
 
-The screenshots are produced by the TUI's own drawing code, so they always match the app.
+The screenshots and the demo are produced by the TUI's own drawing code, so they always
+match the app.
 
 ## License
 
