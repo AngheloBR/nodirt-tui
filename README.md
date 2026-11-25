@@ -8,6 +8,10 @@ A terminal app for Linux/X11 that captures keyboard, mouse and touchpad for a fi
 so you can wipe them without typing into your editor or clicking through your desktop.
 It always ends on its own, and you can leave early by holding a key.
 
+[![crates.io](https://img.shields.io/crates/v/nodirt-tui?logo=rust&color=a78bfa)](https://crates.io/crates/nodirt-tui)
+[![CI](https://github.com/AngheloBR/nodirt-tui/actions/workflows/ci.yml/badge.svg)](https://github.com/AngheloBR/nodirt-tui/actions/workflows/ci.yml)
+[![License: MIT OR Apache-2.0](https://img.shields.io/crates/l/nodirt-tui?color=22d3ee)](#license)
+
 [Español](README.es.md) · English
 
 ![nodirt demo: pick 30s, countdown, locked, hold Escape to leave](docs/demo.svg)
@@ -61,9 +65,21 @@ sudo apt install ./nodirt-tui_*_amd64.deb      # Debian, Ubuntu, Mint
 The binary inside is static, so the same package works on old and new releases alike.
 Uninstall with `sudo dnf remove nodirt-tui` / `sudo apt remove nodirt-tui`.
 
+### With Cargo (crates.io)
+
+If you already have Rust (1.88+):
+
+```sh
+cargo install nodirt-tui     # installs the `nodirt` command
+```
+
+Run the same command again to update, and `cargo uninstall nodirt-tui` to remove it.
+Cargo puts the binary in `~/.cargo/bin`; if your shell can't find `nodirt`, add that folder
+to your `PATH`.
+
 ### From source
 
-Requires Rust 1.88+.
+For the latest unreleased changes on `main` (Rust 1.88+):
 
 ```sh
 cargo install --git https://github.com/AngheloBR/nodirt-tui

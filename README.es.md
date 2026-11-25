@@ -8,6 +8,10 @@ Una app de terminal para Linux/X11 que captura teclado, mouse y touchpad durante
 fijo, para que puedas pasarles el paño sin escribir en tu editor ni hacer clic por el
 escritorio. Siempre termina sola, y puedes salir antes manteniendo una tecla.
 
+[![crates.io](https://img.shields.io/crates/v/nodirt-tui?logo=rust&color=a78bfa)](https://crates.io/crates/nodirt-tui)
+[![CI](https://github.com/AngheloBR/nodirt-tui/actions/workflows/ci.yml/badge.svg)](https://github.com/AngheloBR/nodirt-tui/actions/workflows/ci.yml)
+[![License: MIT OR Apache-2.0](https://img.shields.io/crates/l/nodirt-tui?color=22d3ee)](#licencia)
+
 Español · [English](README.md)
 
 ![Demo de nodirt: elegir 30s, cuenta atrás, bloqueo y mantener Escape para salir](docs/demo.svg)
@@ -63,9 +67,21 @@ sudo apt install ./nodirt-tui_*_amd64.deb      # Debian, Ubuntu, Mint
 El binario de dentro es estático, así que el mismo paquete sirve en versiones antiguas y
 nuevas. Para desinstalar: `sudo dnf remove nodirt-tui` / `sudo apt remove nodirt-tui`.
 
+### Con Cargo (crates.io)
+
+Si ya tienes Rust (1.88+):
+
+```sh
+cargo install nodirt-tui     # instala el comando `nodirt`
+```
+
+Para actualizar, repite el mismo comando; para desinstalar, `cargo uninstall nodirt-tui`.
+Cargo deja el binario en `~/.cargo/bin`; si la terminal no encuentra `nodirt`, agrega esa
+carpeta a tu `PATH`.
+
 ### Desde el código
 
-Requiere Rust 1.88+.
+Para tener los últimos cambios de `main` aún sin publicar (Rust 1.88+):
 
 ```sh
 cargo install --git https://github.com/AngheloBR/nodirt-tui
