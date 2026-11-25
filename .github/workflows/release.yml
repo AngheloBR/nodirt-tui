@@ -56,23 +56,41 @@ jobs:
             *.rpm*
 
   # Instala los paquetes de verdad antes de publicar: si apt o dnf los rechazan, no hay release.
+  # Todo en contenedores; aarch64 se emula con QEMU, así se prueba sin tener un equipo ARM.
   verify:
     needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-musl
+            platform: linux/amd64
+            deb: amd64
+            rpm: x86_64
+          - target: aarch64-unknown-linux-musl
+            platform: linux/arm64
+            deb: arm64
+            rpm: aarch64
     runs-on: ubuntu-latest
     steps:
+      - uses: docker/setup-qemu-action@v3
+        if: matrix.platform == 'linux/arm64'
       - uses: actions/download-artifact@v8
         with:
-          name: x86_64-unknown-linux-musl
+          name: ${{ matrix.target }}
+      - name: Binario del tarball (Ubuntu)
+        run: |
+          tar xzf nodirt-${{ matrix.target }}.tar.gz
+          docker run --rm --platform ${{ matrix.platform }} -v "$PWD:/pkg:ro" ubuntu:24.04 \
+            sh -c 'uname -m && /pkg/nodirt-${{ matrix.target }}/nodirt --version'
       - name: .deb con apt (Ubuntu)
         run: |
-          sudo apt-get install -y ./nodirt-tui_*_amd64.deb
-          nodirt --version
-          dpkg -s nodirt-tui | grep -E '^(Package|Version|Depends)' || true
-          sudo apt-get remove -y nodirt-tui
+          docker run --rm --platform ${{ matrix.platform }} -v "$PWD:/pkg:ro" ubuntu:24.04 \
+            sh -c 'apt-get update -qq && apt-get install -y /pkg/nodirt-tui_*_${{ matrix.deb }}.deb && nodirt --version && dpkg -s nodirt-tui | grep -E "^(Package|Version|Architecture)"'
       - name: .rpm con dnf (Fedora)
         run: |
-          docker run --rm -v "$PWD:/pkg:ro" fedora:latest \
-            sh -c 'dnf install -y /pkg/nodirt-tui-*.x86_64.rpm && nodirt --version && rpm -q nodirt-tui'
+          docker run --rm --platform ${{ matrix.platform }} -v "$PWD:/pkg:ro" fedora:latest \
+            sh -c 'dnf install -y /pkg/nodirt-tui-*.${{ matrix.rpm }}.rpm && nodirt --version && rpm -q nodirt-tui'
 
   release:
     needs: [build, verify]
