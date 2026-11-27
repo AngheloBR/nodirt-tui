@@ -8,9 +8,9 @@ A terminal app for Linux/X11 that captures keyboard, mouse and touchpad for a fi
 so you can wipe them without typing into your editor or clicking through your desktop.
 It always ends on its own, and you can leave early by holding a key.
 
-[![crates.io](https://img.shields.io/crates/v/nodirt-tui?logo=rust&color=a78bfa)](https://crates.io/crates/nodirt-tui)
+[![crates.io](https://img.shields.io/crates/v/nodirt-tui?logo=rust&color=a78bfa&label=crates.io)](https://crates.io/crates/nodirt-tui)
 [![CI](https://github.com/AngheloBR/nodirt-tui/actions/workflows/ci.yml/badge.svg)](https://github.com/AngheloBR/nodirt-tui/actions/workflows/ci.yml)
-[![License: MIT OR Apache-2.0](https://img.shields.io/crates/l/nodirt-tui?color=22d3ee)](#license)
+[![License: MIT OR Apache-2.0](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-22d3ee)](#license)
 
 [Español](README.es.md) · English
 

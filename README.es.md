@@ -8,9 +8,9 @@ Una app de terminal para Linux/X11 que captura teclado, mouse y touchpad durante
 fijo, para que puedas pasarles el paño sin escribir en tu editor ni hacer clic por el
 escritorio. Siempre termina sola, y puedes salir antes manteniendo una tecla.
 
-[![crates.io](https://img.shields.io/crates/v/nodirt-tui?logo=rust&color=a78bfa)](https://crates.io/crates/nodirt-tui)
+[![crates.io](https://img.shields.io/crates/v/nodirt-tui?logo=rust&color=a78bfa&label=crates.io)](https://crates.io/crates/nodirt-tui)
 [![CI](https://github.com/AngheloBR/nodirt-tui/actions/workflows/ci.yml/badge.svg)](https://github.com/AngheloBR/nodirt-tui/actions/workflows/ci.yml)
-[![License: MIT OR Apache-2.0](https://img.shields.io/crates/l/nodirt-tui?color=22d3ee)](#licencia)
+[![License: MIT OR Apache-2.0](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-22d3ee)](#licencia)
 
 Español · [English](README.md)
 
